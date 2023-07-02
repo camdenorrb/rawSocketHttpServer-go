@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+const ReadBufferSize = 1024
+
 func main() {
 	startServer()
 }
@@ -27,35 +29,44 @@ func startServer() {
 }
 
 func handleConnection(connection net.Conn) {
+
+	var requestData strings.Builder
+
 	for {
 
-		data := make([]byte, 1024)
+		data := make([]byte, ReadBufferSize)
 
-		_, err := connection.Read(data)
+		value, err := connection.Read(data)
 		if err != nil {
 			if err.Error() == "EOF" {
-				return
+				break
 			}
 			panic(err)
 		}
 
-		request := parseHTTPRequest(string(data))
+		requestData.Write(data)
 
-		response := HTTPResponse{
-			Version: request.Version,
-			Status:  "200 OK",
-			Headers: request.Headers,
-			Data:    request.Path,
+		if value < ReadBufferSize {
+			break
 		}
-
-		response.send(connection)
-		err = connection.Close()
-		if err != nil {
-			panic(err)
-		}
-
-		return
 	}
+
+	request := parseHTTPRequest(requestData.String())
+
+	response := HTTPResponse{
+		Version: request.Version,
+		Status:  "200 OK",
+		Headers: request.Headers,
+		Data:    request.Path,
+	}
+
+	response.send(connection)
+
+	if err := connection.Close(); err != nil {
+		panic(err)
+	}
+
+	return
 }
 
 type HTTPRequest struct {
@@ -126,8 +137,7 @@ func (r *HTTPResponse) String() string {
 }
 
 func (r *HTTPResponse) send(conn net.Conn) {
-	_, err := conn.Write([]byte(r.String()))
-	if err != nil {
+	if _, err := conn.Write([]byte(r.String())); err != nil {
 		panic(err)
 	}
 }
