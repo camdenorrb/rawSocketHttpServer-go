@@ -57,7 +57,7 @@ func handleConnection(connection net.Conn) {
 		Version: request.Version,
 		Status:  "200 OK",
 		Headers: request.Headers,
-		Data:    request.Path,
+		Data:    "<h1>" + request.Path + "</h1>",
 	}
 
 	response.send(connection)
